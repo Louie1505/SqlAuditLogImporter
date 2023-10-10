@@ -11,13 +11,20 @@ using Serilog;
 using System.Collections.Concurrent;
 
 using SqlAuditLogImporter;
+using Microsoft.Extensions.Configuration;
 
-string backupPath = "Path to the folder containing the backups";
-string connectionString = "conn str to the sql server database the logs will be stored in";
 
 var builder = Host.CreateDefaultBuilder(args).ConfigureLogging((context, logging) => {
     logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
 });
+
+var config = new ConfigurationBuilder()
+   .SetBasePath(Directory.GetCurrentDirectory())
+   .AddJsonFile("appsettings.json", optional: false)
+   .Build();
+
+string backupPath = config.GetValue<string>(nameof(backupPath));
+string connectionString = config.GetValue<string>(nameof(connectionString));
 
 builder.ConfigureServices((ctx, services) => {
     services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString, sqlOptions => sqlOptions.EnableRetryOnFailure(5)), ServiceLifetime.Transient);
@@ -35,10 +42,6 @@ var services = scope.ServiceProvider;
 try {
 
     var appContext = services.GetRequiredService<AppDbContext>();
-
-    //Bodge to both empty and migrate the table
-    appContext.Database.EnsureCreated();
-    appContext.Database.ExecuteSqlRaw($"DROP TABLE {Definitions.TableName};");
     appContext.Database.EnsureCreated();
     appContext = null;
 
