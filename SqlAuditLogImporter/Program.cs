@@ -77,7 +77,7 @@ try {
     for (int i = 0; i < threadCount; i++) {
         actions[i] = async () => {
             var context = services.GetRequiredService<AppDbContext>();
-            context.Database.SetCommandTimeout(180);
+            context.Database.SetCommandTimeout(300);
             while (_fileQueue.TryDequeue(out string? file)) {
                 Log.Information($"Starting file {file}");
                 var evData = new QueryableXEventData(file);
@@ -96,10 +96,14 @@ try {
 
                 Log.Information($"{logsInFile} events added from file {file}");
 
+                //Add a new suffix onto the file so it will be ignored if we have to run again
+                File.Move(file, file+".done");
+
                 totalRecords += logsInFile;
                 TimeSpan span = DateTime.Now.Subtract(start);
                 Log.Information($"{span.Hours}:{span.Minutes}:{span.Seconds} elapsed - {totalRecords} total events processed");
             }
+            Log.Information($"Thread complete");
         };
     }
 
